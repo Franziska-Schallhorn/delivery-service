@@ -8,6 +8,7 @@ import time
 import kubernetes.client as kc
 import kubernetes.client.rest
 import kubernetes.config
+import kubernetes.dynamic
 import yaml
 
 import cnudie.iter
@@ -30,6 +31,7 @@ class KubernetesApi:
     custom_kubernetes_api: kc.CustomObjectsApi
     apps_kubernetes_api: kc.AppsV1Api
     networking_kubernetes_api: kc.NetworkingV1Api
+    dynamic_client: kubernetes.dynamic.DynamicClient
 
 
 def kubernetes_api(
@@ -53,6 +55,7 @@ def kubernetes_api(
         custom_kubernetes_api=kc.CustomObjectsApi(api_client=api_client),
         apps_kubernetes_api=kc.AppsV1Api(api_client=api_client),
         networking_kubernetes_api=kc.NetworkingV1Api(api_client=api_client),
+        dynamic_client=kubernetes.dynamic.DynamicClient(client=api_client),
     )
 
 
