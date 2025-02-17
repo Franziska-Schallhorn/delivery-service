@@ -1,0 +1,296 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: runtimeartefacts.delivery-gear.gardener.cloud
+spec:
+  group: delivery-gear.gardener.cloud
+  scope: Namespaced
+  names:
+    singular: runtimeartefact
+    plural: runtimeartefacts
+    kind: RuntimeArtefact
+    shortNames:
+      - ra
+      - runtime
+      - runtimes
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              # enable additional properties not being pruned to allow adding
+              # of new properties in the future as helm won't upgrade crds
+              x-kubernetes-preserve-unknown-fields: true
+              type: object
+              properties:
+                creation_date:
+                  type: string
+                artefact:
+                  x-kubernetes-preserve-unknown-fields: true
+                  type: object
+                  properties:
+                    component_name:
+                      type: string
+                    component_version:
+                      type: string
+                    artefact_kind:
+                      type: string
+                    artefact:
+                      x-kubernetes-preserve-unknown-fields: true
+                      type: object
+                      properties:
+                        artefact_name:
+                          type: string
+                        artefact_version:
+                          type: string
+                        artefact_type:
+                          type: string
+                        artefact_extra_id:
+                          x-kubernetes-preserve-unknown-fields: true
+                          type: object
+                    references:
+                      type: array
+                      items:
+                        x-kubernetes-preserve-unknown-fields: true
+                        type: object
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: delivery-service
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: delivery-service
+  minReplicas: 1
+  maxReplicas: 30
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80
+  behavior:
+    scaleDown:
+      # scale-down up to max(1 pod, 10% of current pods) every 30s if utilisation is below 50%
+      # on an average basis in the last 120s
+      stabilizationWindowSeconds: 120
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 30
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      # scale-up up to max(4 pods, 100% of current pods) every 15s if utilisation is above 50%
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 5
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: ocm-gear
+rules:
+  - apiGroups:
+      - ""
+      - apps
+      - networking.k8s.io
+      - delivery-gear.gardener.cloud
+    resources:
+      - backlogitems
+      - logcollections
+      - pods
+      - replicasets
+      - ingresses
+      - runtimeartefacts
+    verbs:
+      - create
+      - get
+      - list
+      - update
+      - patch
+      - delete
+      - watch
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: ocm-gear
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: ~ # ODG
+roleRef:
+  kind: Role
+  name: ocm-gear
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: delivery-service
+spec:
+  selector:
+    matchLabels:
+      app: delivery-service
+  strategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: delivery-service
+    spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: delivery-service
+      containers:
+        - name: delivery-service
+          image: ~ # ODG
+          imagePullPolicy: IfNotPresent
+          args:
+            - --productive
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          ports:
+            - containerPort: 5000
+              name: default
+          env:
+          - name: SECRET_FACTORY_PATH
+            value: /secrets
+          - name: EXTENSIONS_CFG_PATH
+            value: /extensions_cfg/extensions_cfg
+          - name: FINDINGS_CFG_PATH
+            value: /findings_cfg/findings_cfg
+          - name: FEATURES_CFG_PATH
+            value: /features_cfg/features_cfg
+          - name: OCM_REPO_MAPPINGS_PATH
+            value: /ocm_repo_mappings/ocm_repo_mappings
+          - name: K8S_TARGET_NAMESPACE
+            value: ~ # ODG
+          volumeMounts:
+            - name: bdba
+              mountPath: /secrets/bdba
+            - name: delivery-db
+              mountPath: /secrets/delivery-db
+            - name: github
+              mountPath: /secrets/github
+            - name: kubernetes
+              mountPath: /secrets/kubernetes
+            - name: oauth-cfg
+              mountPath: /secrets/oauth-cfg
+            - name: oci-registry
+              mountPath: /secrets/oci-registry
+            - name: signing-cfg
+              mountPath: /secrets/signing-cfg
+            - name: extensions-cfg
+              mountPath: /extensions_cfg
+            - name: findings-cfg
+              mountPath: /findings_cfg
+            - name: ocm-repo-mappings
+              mountPath: /ocm_repo_mappings
+            - name: features-cfg
+              mountPath: "/features_cfg"
+          resources:
+            requests:
+              memory: 1Gi
+              cpu: 100m
+            limits:
+              memory: 5Gi
+              cpu: 500m
+      volumes:
+        - name: bdba
+          secret:
+            secretName: secret-factory-bdba
+            optional: true # bdba extension is optional
+        - name: delivery-db
+          secret:
+            secretName: secret-factory-delivery-db
+        - name: github
+          secret:
+            secretName: secret-factory-github
+        - name: kubernetes
+          secret:
+            secretName: secret-factory-kubernetes
+            optional: true # extensions in general are optional
+        - name: oauth-cfg
+          secret:
+            secretName: secret-factory-oauth-cfg
+            optional: true # authentication is optional
+        - name: oci-registry
+          secret:
+            secretName: secret-factory-oci-registry
+        - name: signing-cfg
+          secret:
+            secretName: secret-factory-signing-cfg
+            optional: true # authentication is optional
+        - name: extensions-cfg
+          configMap:
+            name: extensions-cfg
+        - name: findings-cfg
+          configMap:
+            name: findings-cfg
+        - name: ocm-repo-mappings
+          configMap:
+            name: ocm-repo-mappings
+        - name: features-cfg
+          secret:
+            secretName: features-cfg
+            optional: true
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: delivery-service
+  annotations:
+    cert.gardener.cloud/purpose: managed
+    dns.gardener.cloud/class: garden
+    dns.gardener.cloud/dnsnames: "*"
+    nginx.ingress.kubernetes.io/proxy-body-size: 16m
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "900"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: ~ # ODG
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: delivery-service
+                port:
+                  number: 8080
+  tls:
+    - hosts:
+      - ~ # ODG
+      secretName: delivery-service-tls
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: delivery-service
+  labels:
+    app: delivery-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+    targetPort: 5000
+    name: default
+  selector:
+    app: delivery-service

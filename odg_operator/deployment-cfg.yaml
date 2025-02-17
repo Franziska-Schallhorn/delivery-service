@@ -1,0 +1,7 @@
+deployments:
+- type: delivery-service
+  disabled: False
+  cfg:
+    namespace: my-namespace
+    image: my-image
+    hostname: delivery-service.ocm.software
