@@ -59,7 +59,7 @@ def main(kubeconfig: dict | None):
 
     # create service account if not present
     try:
-        sa = customer_k8s_client.core_kubernetes_api.read_namespaced_service_account(
+        customer_k8s_client.core_kubernetes_api.read_namespaced_service_account(
             name=CUSTOMER_CLUSTER_SERVICE_ACCOUNT_NAME,
             namespace=customer_namespace,
         )
@@ -77,7 +77,7 @@ def main(kubeconfig: dict | None):
         )
 
     # refresh token
-    token_request: tq = customer_k8s_client.core_kubernetes_api.create_namespaced_service_account_token(
+    token_request: tq = customer_k8s_client.core_kubernetes_api.create_namespaced_service_account_token(  # noqa: E501
         name=CUSTOMER_CLUSTER_SERVICE_ACCOUNT_NAME,
         namespace=customer_namespace,
         body={}
@@ -152,6 +152,7 @@ def main(kubeconfig: dict | None):
             raise
 
     tf.close()
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

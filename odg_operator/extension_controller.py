@@ -1,8 +1,12 @@
 import argparse
 import base64
+import dataclasses
 import http
 import logging
 import os
+import subprocess
+import tarfile
+import tempfile
 
 import dacite
 import kubernetes.client
@@ -11,6 +15,7 @@ import kubernetes.client.rest
 import kubernetes.config
 import kubernetes.watch
 import urllib3
+import yaml
 
 import ci.log
 import ci.util
@@ -25,7 +30,6 @@ logger = logging.getLogger(__name__)
 own_dir = os.path.abspath(os.path.dirname(__file__))
 
 
-import dataclasses
 @dataclasses.dataclass
 class ExtensionTemplate:
     cfg: dict
@@ -95,7 +99,6 @@ def main():
                     digest=layer.digest,
                 )
 
-                import tempfile
                 tmpfile = tempfile.NamedTemporaryFile()
                 for chunk in res.iter_content(chunk_size=4096):
                     tmpfile.write(chunk)
@@ -103,11 +106,9 @@ def main():
 
                 tmpdir = tempfile.TemporaryDirectory()
 
-                import tarfile
                 with tarfile.open(fileobj=tmpfile, mode='r:gz') as tf:
                     tf.extractall(path=tmpdir.name, filter='fully_trusted')
                 tmpfile.close()
-                import ci.util
 
                 helm_path = os.path.join(tmpdir.name, extension_template.type)
 
@@ -125,10 +126,8 @@ def main():
                 values = ci.util.parse_yaml_file(values_path)
                 values = ci.util.merge_dicts(values, extension_template.cfg)
 
-                import yaml
                 yaml.dump(values, open(values_path, 'w'))
 
-                import subprocess
                 completed_process = subprocess.run([
                     'helm',
                     'template',
@@ -152,8 +151,8 @@ def main():
                         'ReplicaSet',
                         'Deployment',
                     ):
-                        manifest['metadata']['annotations'] = manifest['metadata'].get('annotations', {})
-                        manifest['metadata']['annotations']['resources.gardener.cloud/preserve-replicas'] = "true"
+                        manifest['metadata']['annotations'] = manifest['metadata'].get('annotations', {}) # noqa: E501
+                        manifest['metadata']['annotations']['resources.gardener.cloud/preserve-replicas'] = "true" # noqa: E501
 
                 # create mr if not existing
                 try:
@@ -225,7 +224,6 @@ def main():
                         raise
 
                 tmpdir.cleanup()
-
 
         except kubernetes.client.rest.ApiException as e:
             if e.status == http.HTTPStatus.GONE:

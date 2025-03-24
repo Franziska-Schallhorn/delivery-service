@@ -54,7 +54,7 @@ def fill_default_values(
                     'hosts': [delivery_dashboard_url(extension.base_url)],
                 },
                 'envVars': {
-                    'REACT_APP_DELIVERY_SERVICE_API_URL': f'https://{delivery_service_url(extension.base_url)}',
+                    'REACT_APP_DELIVERY_SERVICE_API_URL': f'https://{delivery_service_url(extension.base_url)}', # noqa: E501
                 },
                 'target_namespace': installation.target.namespace,
             }
@@ -66,7 +66,6 @@ def fill_default_values(
                     'target_namespace': installation.target.namespace,
                 }
             }
-
 
 
 def default_extensions(
@@ -151,7 +150,7 @@ def default_extensions(
                     },
                     'podAnnotations': {
                         'prometheus.io/scrape': True,
-                        'prometheus.io/port': '10254', 
+                        'prometheus.io/port': '10254',
                     }
                 }
             },
@@ -168,16 +167,17 @@ resource_name_for_extension_type = {
     odgm.ExtensionTypes.DELIVERY_DB: 'postgresql',
 }
 
+
 def helm_chart_for_extension(
     odg_version: str,
     extension: odgm.Extension,
 ) -> str:
     if extension.type == odgm.ExtensionTypes.INGRESS_NGINX:
-        return 'europe-docker.pkg.dev/gardener-project/releases/charts/ocm-gear/ingress-nginx/ingress-nginx@sha256:f8296fc031beb8023b51e62c982a6c1c2f15e8584e4e70c36daf0885da830d2f'
+        return 'europe-docker.pkg.dev/gardener-project/releases/charts/ocm-gear/ingress-nginx/ingress-nginx@sha256:f8296fc031beb8023b51e62c982a6c1c2f15e8584e4e70c36daf0885da830d2f'  # noqa: E501
 
     elif extension.type == odgm.ExtensionTypes.DELIVERY_DB:
         # use 16.5.3 already
-        return 'europe-docker.pkg.dev/gardener-project/releases/charts/ocm-gear/postgresql/postgresql@sha256:516157e9547123d830af1b834020502e4ffd5e5c1af9f3713fcdcf88fda2923b'
+        return 'europe-docker.pkg.dev/gardener-project/releases/charts/ocm-gear/postgresql/postgresql@sha256:516157e9547123d830af1b834020502e4ffd5e5c1af9f3713fcdcf88fda2923b'  # noqa: E501
 
     component_descriptor_lookup = lookups.init_component_descriptor_lookup(
         cache_dir='./cache/ocm',
