@@ -1,0 +1,11 @@
+FROM europe-docker.pkg.dev/gardener-project/releases/ocm-gear/delivery-service:0.1122.0
+
+COPY /dist /dist
+
+# cannot install numpy, scipy via pypi
+RUN --mount=type=bind,source=/dist,target=/dist \
+    pip3 install --upgrade --no-cache-dir --find-links ./dist odg-operator \
+&& \
+    apk add --no-cache helm
+
+ENTRYPOINT ["python3", "odg_controller.py"]
