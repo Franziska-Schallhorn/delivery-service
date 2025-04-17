@@ -617,6 +617,27 @@ def _license_template_vars(
     }
 
 
+def _falco_template_vars(
+    finding_groups: list[FindingGroup],
+    summary: str,
+) -> dict[str, str]:
+    for finding_group in finding_groups:
+        finding_group: FindingGroup
+        for aggregated_finding in finding_group.findings:
+            aggregated_finding: AggregatedFinding
+            am: dso.model.ArtefactMetadata = aggregated_finding.finding
+            finding: dso.model.FalcoFinding = am.data
+            summary += '\n' + finding.subtype
+            if finding.subtype == dso.model.FalcoFindingSubType.EVENT_GROUP:
+                summary += '\n' + finding.finding.message
+            elif finding.subtype == dso.model.FalcoFindingSubType.INTERACTIVE_EVENT_GROUP:
+                summary += '\n' + finding.finding.cluster
+
+    return {
+        'summary': summary
+    }
+
+
 def _diki_template_vars(
     finding_groups: list[FindingGroup],
     summary: str,
@@ -985,6 +1006,11 @@ def _template_vars(
         )
     elif finding_cfg.type is odg.findings.FindingType.DIKI:
         template_variables |= _diki_template_vars(
+            finding_groups=finding_groups,
+            summary=summary,
+        )
+    elif finding_cfg.type is odg.findings.FindingType.FALCO:
+        template_variables |= _falco_template_vars(
             finding_groups=finding_groups,
             summary=summary,
         )
